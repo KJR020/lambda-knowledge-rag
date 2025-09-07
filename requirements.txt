@@ -1,0 +1,7 @@
+# Add runtime dependencies here, e.g.
+# boto3
+# numpy
+# transformers
+
+[tool.poetry.dependencies]
+python = "^3.13"
