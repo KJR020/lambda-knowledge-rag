@@ -1,0 +1,6 @@
+# development requirements for running tests and linters in src/ env
+pytest
+pytest-cov
+ruff
+black
+mypy

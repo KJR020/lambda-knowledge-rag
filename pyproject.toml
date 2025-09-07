@@ -1,0 +1,44 @@
+[project]
+name = "lambda-knowledge-rag"
+version = "0.1.0"
+description = "Minimal AWS Lambda RAG project"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "boto3",
+ "pydantic",
+ "requests",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+pythonpath = "src"
+testpaths = ["tests"]
+
+[tool.ruff]
+# src と tests ディレクトリを対象
+target-version = "py313"
+include = ["src/**/*.py", "tests/**/*.py"]
+
+[tool.ruff.lint]
+select = [
+  "E",  # pycodestyle errors
+  "W",  # pycodestyle warnings
+  "F",  # pyflakes
+  "I",  # isort
+  "B",  # flake8-bugbear
+  "C4", # flake8-comprehensions
+  "UP", # pyupgrade
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src", "core", "schema"]
+
+[dependency-groups]
+dev = ["pytest>=8.4.2", "ruff>=0.12.12"]

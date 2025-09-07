@@ -1,0 +1,4 @@
+# runtime requirements for the lambda application
+boto3
+# Add other runtime deps below as needed
+# e.g. transformers>=4.0.0
