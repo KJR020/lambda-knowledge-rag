@@ -15,7 +15,7 @@ class S3Client:
         )
 
     def upload_markdown_file(self, bucket: str, key: str, content: str) -> None:
-        """Upload a markdown file to S3."""
+        """マークダウンファイルをS3にアップロードする"""
         self.s3.put_object(
             Bucket=bucket,
             Key=key,
@@ -26,7 +26,7 @@ class S3Client:
     def upload_metadata_file(
         self, bucket: str, key: str, metadata: dict[str, Any]
     ) -> None:
-        """Upload a metadata JSON file to S3."""
+        """メタデータJSONファイルをS3にアップロードする"""
         import json
 
         self.s3.put_object(
@@ -37,13 +37,13 @@ class S3Client:
         )
 
     def list_objects(self, bucket: str, prefix: str = "") -> list[str]:
-        """List objects in S3 bucket with given prefix."""
+        """指定されたプレフィックスでS3バケット内のオブジェクトをリストする"""
         response = self.s3.list_objects_v2(Bucket=bucket, Prefix=prefix)
         return [obj["Key"] for obj in response.get("Contents", [])]
 
 
 class ScrapboxClient:
-    """Client for interacting with Scrapbox API."""
+    """Scrapbox APIとやり取りするためのクライアント"""
 
     def __init__(self, project: str = None, api_token: str = None):
         self.project = project or CONFIG.scrapbox_project
@@ -55,7 +55,7 @@ class ScrapboxClient:
             self.session.headers.update({"Cookie": f"connect.sid={self.api_token}"})
 
     def get_pages(self) -> list[dict[str, Any]]:
-        """Get all pages from the Scrapbox project."""
+        """Scrapboxプロジェクトからすべてのページを取得する"""
         url = f"{self.base_url}/pages/{self.project}"
         response = self.session.get(url)
         response.raise_for_status()
@@ -64,7 +64,7 @@ class ScrapboxClient:
         return data.get("pages", [])
 
     def get_page_content(self, title: str) -> dict[str, Any]:
-        """Get detailed content for a specific page."""
+        """特定のページの詳細なコンテンツを取得する"""
         url = f"{self.base_url}/pages/{self.project}/{title}"
         response = self.session.get(url)
         response.raise_for_status()
@@ -73,20 +73,13 @@ class ScrapboxClient:
 
 
 class KnowledgeClient:
-    """Client that exposes retrieval capabilities.
-
-    For now this contains a local stubbed `find` implementation. In future it
-    can wrap a vector DB client or use S3 to fetch precomputed results.
-    """
+    """検索機能を提供するクライアント"""
 
     def __init__(self, s3_client: S3Client | None = None):
         self.s3 = s3_client or S3Client()
 
     def find(self, query: str) -> DocumentSchema:
-        """Return a minimal stubbed search result for the given query.
-
-        Keep the shape compatible with the previous `Retriever.find`.
-        """
+        """指定されたクエリに対して最小限のスタブ検索結果を返す"""
         # TODO: replace stub with real retrieval logic (vector DB, etc.)
         raw_data = {"id": "stub-1", "text": f"result for {query}"}
         return DocumentSchema(**raw_data)
