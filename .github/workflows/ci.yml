@@ -1,53 +1,80 @@
-name: CI — tox via Docker
+name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
-  build-and-test:
-    name: Build Docker test image and run tox
+  test:
+    name: Run tests
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build test image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: infra/docker/tests/Dockerfile
+          push: false
+          tags: lambda-knowledge-rag:test
+          load: true
+
+      - name: Run tests
+        run: |
+          docker run --rm lambda-knowledge-rag:test uv run tox -e py313
+
+  lint:
+    name: Run lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Build test image (uses src/docker/tests/Dockerfile)
+      - name: Build test image
         uses: docker/build-push-action@v4
         with:
           context: .
-          file: src/docker/tests/Dockerfile
+          file: infra/docker/tests/Dockerfile
           push: false
-          tags: lambda-knowledge-rag:ci
+          tags: lambda-knowledge-rag:lint
+          load: true
 
-      - name: Run tests in Docker
+      - name: Run lint
         run: |
-          docker run --rm lambda-knowledge-rag:ci
-name: CI
+          docker run --rm lambda-knowledge-rag:lint uv run tox -e lint
 
-on: [push, pull_request]
-
-jobs:
-  test:
+  format-check:
+    name: Check formatting
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build test image
+        uses: docker/build-push-action@v4
         with:
-          python-version: "3.13
-      - name: Install deps
+          context: .
+          file: infra/docker/tests/Dockerfile
+          push: false
+          tags: lambda-knowledge-rag:format
+          load: true
+
+      - name: Check formatting
         run: |
-          python -m pip install --upgrade pip
-          pip install pytest
-      - name: Run tests
-        run: pytest -q
+          docker run --rm lambda-knowledge-rag:format uv run tox -e format-check
