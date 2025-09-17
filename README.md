@@ -55,14 +55,23 @@ Scrapboxで管理されているナレッジベースを、ベクトル検索可
 ```bash
 # 依存関係のインストール
 uv sync
+```
 
-# テスト実行
-tox
+## テスト実行
+
+```bash
+# toxでテスト・Lintを実行
+uv run tox
+
+# 特定の環境のみ実行
+uv run tox -e py313       # テストのみ
+uv run tox -e lint        # Lintのみ
+uv run tox -e format-check  # フォーマットチェックのみ
 ```
 
 ## CI（Docker + tox）
 
-GitHub Actionsで、`infra/docker/tests/Dockerfile` を使いテスト用イメージをビルドし、toxでテスト・Lintを自動実行
+GitHub Actionsで、`infra/docker/tests/Dockerfile` を使いテスト用イメージをビルドし、uv run toxでテスト・Lintを自動実行
 
 ローカルで同じCIを試す場合：
 ```bash
