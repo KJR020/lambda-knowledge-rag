@@ -1,8 +1,9 @@
-import os
-from typing import Any, Dict, List, Optional, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 import pinecone  # type: ignore
-from schema.vector import VectorData, SearchResult, SearchFilter, VectorMetadata
+
+from schema.vector import SearchFilter, SearchResult, VectorData, VectorMetadata
 
 
 class PineConeClient:
@@ -23,17 +24,19 @@ class PineConeClient:
         pinecone.init(api_key=api_key, environment=environment)
         self.index = pinecone.Index(index_name)
 
-    def upsert(self, vectors: List[VectorData]) -> Dict[str, int]:
+    def upsert(self, vectors: list[VectorData]) -> dict[str, int]:
         """ベクトルをupsertする"""
         # VectorDataからPinecone形式に変換
         pinecone_vectors = []
         for vector in vectors:
-            pinecone_vectors.append({
-                "id": vector.id,
-                "values": vector.values,
-                "metadata": vector.metadata.model_dump(),
-            })
-        
+            pinecone_vectors.append(
+                {
+                    "id": vector.id,
+                    "values": vector.values,
+                    "metadata": vector.metadata.model_dump(),
+                }
+            )
+
         result = self.index.upsert(vectors=pinecone_vectors, namespace=self.namespace)
         return {"upserted_count": result.get("upserted_count", 0)}
 
@@ -42,7 +45,7 @@ class PineConeClient:
         id: str,
         values: Sequence[float],
         metadata: VectorMetadata,
-    ) -> Dict[str, int]:
+    ) -> dict[str, int]:
         """1件だけupsertするユーティリティ。"""
         vector_data = VectorData(
             id=id,
@@ -57,10 +60,10 @@ class PineConeClient:
         vector: Sequence[float],
         top_k: int = 5,
         filter: SearchFilter | None = None,
-    ) -> List[SearchResult]:
+    ) -> list[SearchResult]:
         """クエリベクトルで類似検索する。"""
         pinecone_filter = filter.to_pinecone_filter() if filter else None
-        
+
         results = self.index.query(
             vector=list(vector),
             top_k=top_k,
@@ -68,7 +71,7 @@ class PineConeClient:
             filter=pinecone_filter,
             include_metadata=True,
         )
-        
+
         # SearchResultのリストに変換
         search_results = []
         for match in results.get("matches", []):
@@ -79,7 +82,7 @@ class PineConeClient:
                 metadata=VectorMetadata(**metadata),
             )
             search_results.append(search_result)
-        
+
         return search_results
 
     def fetch(self, ids: list[str]) -> Any:
