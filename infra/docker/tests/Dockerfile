@@ -3,7 +3,10 @@ FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
 WORKDIR /app
 COPY . /app
 
-# tox をインストール
-RUN uv pip install --system tox
+# toxを開発依存関係として追加
+RUN uv add --dev tox
 
-CMD ["tox"]
+# 依存関係をインストール
+RUN uv sync
+
+CMD ["uv", "run", "tox"]

@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY . .
 
-# copy deploy script to container root so CMD can run it regardless of build context
+# ビルドコンテキストに関係なく CMD が実行できるよう、デプロイスクリプトをコンテナルートにコピー
 COPY src/docker/package_deploy/deploy.sh ./deploy.sh
 
 RUN apt-get update && \
