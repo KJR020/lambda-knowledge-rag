@@ -11,6 +11,6 @@ class KnowledgeClient:
 
     def find(self, query: str) -> DocumentSchema:
         """指定されたクエリに対して最小限のスタブ検索結果を返す"""
-        # TODO: replace stub with real retrieval logic (vector DB, etc.)
+        # TODO: スタブを実際の検索ロジック（ベクタDB等）に置き換える
         raw_data = {"id": "stub-1", "text": f"result for {query}"}
         return DocumentSchema(**raw_data)

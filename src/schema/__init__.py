@@ -1,12 +1,5 @@
-"""Pydantic schemas for the application."""
-
-# API schemas
 from .api import ErrorResponse, QueryRequest, QueryResponse
-
-# Configuration schemas
 from .config import DatabaseConfig, S3Config
-
-# Document schemas
 from .document import DocumentSchema, DocumentSearchResult
 
 __all__ = [

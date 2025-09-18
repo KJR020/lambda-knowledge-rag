@@ -1,17 +1,15 @@
-"""Document domain schemas."""
-
 from pydantic import BaseModel
 
 
 class DocumentSchema(BaseModel):
-    """Schema for knowledge documents."""
+    """ナレッジドキュメントのスキーマ"""
 
     id: str
     text: str
 
 
 class DocumentSearchResult(BaseModel):
-    """Schema for document search results."""
+    """ドキュメント検索結果のスキーマ"""
 
     documents: list[DocumentSchema]
     total_count: int

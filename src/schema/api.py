@@ -1,25 +1,23 @@
-"""API request and response schemas."""
-
 from typing import Any
 
 from pydantic import BaseModel
 
 
 class QueryRequest(BaseModel):
-    """Schema for knowledge query requests."""
+    """ナレッジ検索リクエストのスキーマ"""
 
     query: str
 
 
 class QueryResponse(BaseModel):
-    """Schema for knowledge query responses."""
+    """ナレッジ検索レスポンスのスキーマ"""
 
     query: str
     document: dict[str, Any]
 
 
 class ErrorResponse(BaseModel):
-    """Schema for error responses."""
+    """エラー応答のスキーマ"""
 
     error: str
     message: str

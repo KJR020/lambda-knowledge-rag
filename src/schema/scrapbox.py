@@ -1,12 +1,10 @@
-"""Scrapbox-related schemas."""
-
 from typing import Any
 
 from pydantic import BaseModel
 
 
 class ScrapboxPage(BaseModel):
-    """Schema for Scrapbox page from API response."""
+    """API レスポンスから返されるScrapboxページのスキーマ"""
 
     id: str
     title: str
@@ -17,7 +15,7 @@ class ScrapboxPage(BaseModel):
 
 
 class ScrapboxPageContent(BaseModel):
-    """Schema for Scrapbox page content with lines."""
+    """行単位のコンテンツを含むScrapboxページのスキーマ"""
 
     id: str
     title: str
@@ -28,7 +26,7 @@ class ScrapboxPageContent(BaseModel):
 
 
 class MarkdownDocument(BaseModel):
-    """Schema for converted markdown document."""
+    """変換済みのMarkdownドキュメントのスキーマ"""
 
     page_id: str
     title: str
@@ -39,7 +37,7 @@ class MarkdownDocument(BaseModel):
 
 
 class ETLResult(BaseModel):
-    """Schema for ETL process result."""
+    """ETL処理の結果を表すスキーマ"""
 
     total_pages: int
     successful: int

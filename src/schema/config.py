@@ -1,10 +1,8 @@
-"""Configuration schemas."""
-
 from pydantic import BaseModel
 
 
 class DatabaseConfig(BaseModel):
-    """Database configuration schema."""
+    """データベース接続設定のスキーマ"""
 
     host: str
     port: int
@@ -14,7 +12,7 @@ class DatabaseConfig(BaseModel):
 
 
 class S3Config(BaseModel):
-    """S3 configuration schema."""
+    """S3 関連設定のスキーマ"""
 
     bucket_name: str
     region: str
