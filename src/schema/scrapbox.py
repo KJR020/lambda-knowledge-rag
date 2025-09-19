@@ -25,16 +25,6 @@ class ScrapboxPageContent(BaseModel):
     icons: list[str] | None = None
 
 
-class MarkdownDocument(BaseModel):
-    """変換済みのMarkdownドキュメントのスキーマ"""
-
-    page_id: str
-    title: str
-    content: str
-    metadata: dict[str, Any]
-    s3_key: str
-    processed_at: str
-
 
 class ETLResult(BaseModel):
     """ETL処理の結果を表すスキーマ"""

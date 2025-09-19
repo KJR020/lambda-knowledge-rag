@@ -12,13 +12,15 @@ class S3Client:
             region_name=CONFIG.aws_region,
         )
 
-    def upload_markdown_file(self, bucket: str, key: str, content: str) -> None:
-        """マークダウンファイルをS3にアップロードする"""
+    def upload_json_file(self, bucket: str, key: str, data: dict[str, Any]) -> None:
+        """JSONファイルをS3にアップロードする"""
+        import json
+
         self.s3.put_object(
             Bucket=bucket,
             Key=key,
-            Body=content.encode("utf-8"),
-            ContentType="text/markdown",
+            Body=json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8"),
+            ContentType="application/json",
         )
 
     def upload_metadata_file(
