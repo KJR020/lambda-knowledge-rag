@@ -4,19 +4,39 @@
 
 ### 1.1 目的
 
-Scrapboxで管理されているナレッジベースを、ベクトル検索可能なRAG（Retrieval-Augmented Generation）システムとして構築する。AWS Lambdaを基盤として、知識の体系的な管理と高速な検索を実現する。
+- Scrapboxで管理されているナレッジベースを、ベクトル検索可能なRAG（Retrieval-Augmented Generation）システムとして構築する
+- AWS Lambdaを基盤として、AWS Bedrock Knowledge Baseを活用した知識の体系的な管理と高速な検索を実現する
 
 ### 1.2 主要機能
 
 - Scrapboxプロジェクトからの知識抽出とS3への保存
-- AWS Bedrock Knowledge Baseによる自動RAGパイプライン
+- AWS Bedrock Knowledge Baseによる自動RAGパイプライン（Embedding生成、Pinecone管理を含む）
 - ハイブリッド検索（セマンティック+キーワード）API
 - 自動回答生成機能（オプション）
 - MCPプロトコルによる各種LLMとの連携
 
+### 1.3 Bedrock Knowledge Baseの役割
+
+Bedrock Knowledge Baseは以下の処理を自動化する：
+
+- **チャンキング**: ドキュメントの適切な分割とチャンク生成
+- **Embedding生成**: 選択したモデル（Titan Embeddings等）による自動ベクトル化
+- **Pinecone管理**: ベクトルデータベースへの自動インデックス作成と更新
+- **メタデータ管理**: ドキュメントメタデータの自動抽出と管理
+- **同期処理**: S3データソースからの自動同期
+
 ## 2. システムアーキテクチャ
 
 ### 2.1 全体構成
+
+本システムは、MCPプロトコルを通じてLLMエージェントと連携し、Scrapboxのナレッジを取り込んでAWS Bedrock Knowledge Baseを活用したRAGシステムを構築する。
+
+#### システム概要
+
+1. **データ取り込み**: ScrapboxからのページデータをS3に保存
+2. **自動処理**: Bedrock Knowledge BaseがEmbedding生成とPineconeインデックス作成を自動実行
+3. **検索・生成**: ハイブリッド検索とLLMによる回答生成
+4. **外部連携**: MCPプロトコルによる各種LLMとの統合
 
 ```mermaid
 graph TB
@@ -35,11 +55,13 @@ graph TB
         
         subgraph Storage["ストレージ層"]
             S3[(S3<br/>データソース)]
-            PINECONE[(Pinecone<br/>ベクトルDB)]
         end
         
         subgraph AI["AI/ML層"]
             KB[Bedrock Knowledge Base<br/>RAG最適化済み]
+            subgraph "KB管理下"
+                PINECONE[(Pinecone<br/>ベクトルDB)]
+            end
         end
     end
     
@@ -52,330 +74,395 @@ graph TB
     SCRAPBOX -->|ページデータ| LAMBDA
     LAMBDA -->|ドキュメント保存| S3
     
-    %% Knowledge Base処理
-    S3 -->|同期| KB
-    KB -->|自動Embedding<br/>チャンク分割| PINECONE
+    %% Knowledge Base自動処理
+    S3 -->|自動同期| KB
+    KB -->|自動Embedding<br/>チャンク分割<br/>インデックス作成| PINECONE
     
     %% 検索処理
     LAMBDA -->|RAG検索| KB
     KB -->|ベクトル検索| PINECONE
     PINECONE -->|検索結果| KB
-    KB -->|レスポンス| LAMBDA
+    KB -->|統合レスポンス| LAMBDA
     LAMBDA -->|レスポンス| MCPSERVER
 ```
 
-### 2.2 主要コンポーネント
+### 2.3 レイヤー構造
 
 ```mermaid
-graph LR
-    subgraph Core["コア機能"]
+graph TB
+    subgraph "インフラストラクチャレイヤー"
+        SCRAPBOX[ScrapboxAdapter]
+        S3[S3Adapter]
+        KB[BedrockKBAdapter]
         HANDLER[Lambda Handler]
-        CONFIG[Config]
+        MCP[MCP Server]
     end
     
-    subgraph Clients["外部連携クライアント"]
-        SCRAPBOX_CLIENT[ScrapboxClient]
-        S3_CLIENT[S3Client]
-        KB_CLIENT[Knowledge BaseClient]
-        PINECONE_CLIENT[PineconeClient]
-        KNOWLEDGE_CLIENT[KnowledgeClient]
+    subgraph "アプリケーションレイヤー"
+        UC1[SearchKnowledgeUseCase]
+        UC2[IngestScrapboxUseCase]
+        PORTS[Port Interfaces<br/>RAGPort, StoragePort, ScrapboxPort]
     end
     
-    subgraph Schemas["データスキーマ"]
-        API_SCHEMA[API Schema]
-        KB_SCHEMA[Knowledge Base Schema]
-        VECTOR_SCHEMA[Vector Schema]
-        DOC_SCHEMA[Document Schema]
+    subgraph "ドメインレイヤー"
+        ENTITIES[Entities<br/>Document, ScrapboxPage]
+        VALUES[Value Objects<br/>Query, DocumentId, Metadata]
+        POLICIES[Domain Services<br/>SearchPolicy]
     end
     
-    HANDLER --> CONFIG
-    HANDLER --> KNOWLEDGE_CLIENT
-    KNOWLEDGE_CLIENT --> SCRAPBOX_CLIENT
-    KNOWLEDGE_CLIENT --> S3_CLIENT
-    KNOWLEDGE_CLIENT --> KB_CLIENT
-    KNOWLEDGE_CLIENT --> PINECONE_CLIENT
+    %% 依存関係の方向
+    HANDLER --> UC1
+    HANDLER --> UC2
+    MCP --> UC1
     
-    SCRAPBOX_CLIENT --> DOC_SCHEMA
-    KB_CLIENT --> KB_SCHEMA
-    PINECONE_CLIENT --> VECTOR_SCHEMA
-    HANDLER --> API_SCHEMA
+    UC1 --> ENTITIES
+    UC1 --> VALUES
+    UC1 --> POLICIES
+    UC1 --> PORTS
+    
+    UC2 --> ENTITIES
+    UC2 --> VALUES
+    UC2 --> PORTS
+    
+    %% アダプターがポートを実装（依存関係逆転）
+    SCRAPBOX -.-> PORTS
+    S3 -.-> PORTS
+    KB -.-> PORTS
 ```
 
-### 2.3 クラス間の依存関係
+### 2.4 ディレクトリ構造
+
+```
+src/
+├── domain/                 # ビジネスロジック層
+│   ├── entities/          # エンティティ
+│   ├── values/            # 値オブジェクト
+│   └── policies/          # ドメインサービス
+│
+├── application/           # アプリケーション層
+│   ├── usecases/         # ユースケース
+│   └── ports/            # インターフェース定義
+│
+├── infrastructure/        # インフラストラクチャ層
+│   ├── adapters/         # 外部システム連携
+│   ├── lambda/           # Lambda関数
+│   └── config/           # 設定・DI
+│
+└── shared/               # 共有コンポーネント
+```
+
+### 2.2 アーキテクチャ設計方針
+
+#### クリーンアーキテクチャの採用
+
+本システムでは、以下の理由からクリーンアーキテクチャを採用する：
+
+- **変更への柔軟性**: 外部サービス（Scrapbox、AWS）の変更に対して、ビジネスロジックが影響を受けない
+- **テスタビリティ**: ビジネスロジックを外部依存なしでテスト可能
+- **責務の明確化**: 各層の責任範囲が明確で、保守性が向上する
+- **依存関係の制御**: 内側の層が外側の層に依存しない単方向の依存関係を実現する
+
+### 2.5 コンポーネント構成
 
 ```mermaid
-classDiagram
-    class LambdaHandler {
-        +lambda_handler()
-    }
+graph TB
+    subgraph "ドメインレイヤー"
+        subgraph "エンティティ"
+            DOCUMENT[Document<br/>ドキュメントエンティティ]
+            PAGE[ScrapboxPage<br/>ページエンティティ]
+        end
+        
+        subgraph "値オブジェクト"
+            DOCID[DocumentId]
+            QUERY[Query]
+            METADATA[Metadata]
+        end
+        
+        subgraph "ドメインサービス"
+            SEARCH_POLICY[SearchPolicy<br/>検索ポリシー]
+            FILTER_POLICY[FilterPolicy<br/>フィルタリングポリシー]
+        end
+    end
+
+    subgraph "アプリケーションレイヤー"
+        subgraph "ユースケース"
+            SEARCH_UC[SearchKnowledgeUseCase<br/>知識検索]
+            INGEST_UC[IngestScrapboxUseCase<br/>データ取り込み]
+        end
+        
+        subgraph "ポート（インターフェース）"
+            SCRAPBOX_PORT[ScrapboxPort]
+            STORAGE_PORT[StoragePort]
+            RAG_PORT[RAGPort]
+        end
+    end
     
-    class Config {
-        <<singleton>>
-        環境変数管理
-    }
+    subgraph "インフラストラクチャレイヤー"
+        subgraph "アダプター"
+            SCRAPBOX_ADAPTER[ScrapboxAdapter]
+            S3_ADAPTER[S3Adapter]
+            KB_ADAPTER[BedrockKBAdapter<br/>Pinecone統合]
+        end
+
+        subgraph "フレームワーク"
+            HANDLER[Lambda Handler]
+            CONTAINER[DI Container]
+        end
+    end
     
-    class ScrapboxClient {
-        Scrapbox API連携
-    }
+    %% Use Case Dependencies
+    SEARCH_UC --> DOCUMENT
+    SEARCH_UC --> QUERY
+    SEARCH_UC --> SEARCH_POLICY
+    SEARCH_UC --> RAG_PORT
     
-    class KnowledgeBaseClient {
-        Bedrock KB操作
-    }
+    INGEST_UC --> PAGE
+    INGEST_UC --> DOCUMENT
+    INGEST_UC --> SCRAPBOX_PORT
+    INGEST_UC --> STORAGE_PORT
     
-    class PineconeClient {
-        ベクトルDB操作
-    }
+    %% Adapter Implementations
+    SCRAPBOX_ADAPTER -.-> SCRAPBOX_PORT
+    S3_ADAPTER -.-> STORAGE_PORT
+    KB_ADAPTER -.-> RAG_PORT
     
-    class S3Client {
-        ドキュメント保存
-    }
-    
-    class KnowledgeClient {
-        統合検索処理
-    }
-    
-    %% 依存関係
-    LambdaHandler ..> Config
-    LambdaHandler ..> KnowledgeClient
-    ScrapboxClient ..> Config
-    KnowledgeClient --> S3Client
-    KnowledgeClient ..> KnowledgeBaseClient
-    KnowledgeClient ..> PineconeClient
-    KnowledgeClient ..> ScrapboxClient
+    %% Handler Dependencies
+    HANDLER --> CONTAINER
+    CONTAINER --> SEARCH_UC
+    CONTAINER --> INGEST_UC
 ```
+
+### 2.6 主要インターフェース
+
+アーキテクチャの重要な境界となるポート（インターフェース）を定義する：
+
+#### ドメイン層
+
+- **Document**: ナレッジベースの基本エンティティ
+- **ScrapboxPage**: Scrapboxページのエンティティ
+- **Query**: 検索クエリの値オブジェクト
+- **SearchPolicy**: 検索ロジックのドメインサービス
+
+#### アプリケーション層のポート
+
+```
+RAGPort
+├── search(query): List<Document>
+└── search_and_generate(query): SearchResult
+
+StoragePort
+├── save(document): void
+├── find(document_id): Document
+└── trigger_sync(): void
+
+ScrapboxPort
+├── list_pages(): List<dict>
+└── get_page(title): ScrapboxPage
+```
+
+#### ユースケース
+
+- **SearchKnowledgeUseCase**: 知識検索とフィルタリング
+- **IngestScrapboxUseCase**: Scrapboxページの取り込み
+
+#### インフラストラクチャ層
+
+- **BedrockKBAdapter**: RAGPortの実装（Bedrock Knowledge Base連携）
+- **S3Adapter**: StoragePortの実装（S3操作）
+- **ScrapboxAdapter**: ScrapboxPortの実装（Scrapbox API連携）
 
 ## 3. データフロー設計
 
-### 3.1 ETL処理フロー
+### 3.1 データ取り込み処理フロー
 
 ```mermaid
 sequenceDiagram
-    participant L as Lambda Handler
-    participant SC as ScrapboxClient
-    participant S3 as S3Client
-    participant KB as Knowledge Base
-    participant PC as Pinecone
+    participant H as Lambda Handler
+    participant UC as IngestScrapboxUseCase
+    participant SP as ScrapboxPort
+    participant STR as StoragePort
+    participant SA as ScrapboxAdapter
+    participant S3A as S3Adapter
+    participant KB as Bedrock Knowledge Base
     
-    L->>SC: get_pages()
-    SC->>SC: Scrapbox API呼び出し
-    SC-->>L: ページ一覧
+    H->>UC: execute(page_title)
+    UC->>SP: get_page(title)
+    SP->>SA: 実装により処理
+    SA-->>SP: ScrapboxPage
+    SP-->>UC: ScrapboxPage
     
-    loop 各ページ処理
-        L->>SC: get_page_content(title)
-        SC-->>L: ページ詳細
-        
-        L->>L: ドキュメント整形<br/>（タイトル、メタデータ含む）
-        
-        L->>S3: upload_document()
-        S3-->>L: 保存完了
-    end
+    UC->>UC: page.to_document()
+    Note over UC: ドメインエンティティ作成
     
-    Note over S3,KB: 自動同期
-    S3->>KB: 新規ドキュメント検出
-    KB->>KB: チャンク分割<br/>Embedding生成
-    KB->>PC: ベクトル保存
-    PC-->>KB: インデックス完了
-    KB-->>S3: 同期完了
+    UC->>STR: save(document)
+    STR->>S3A: 実装により処理
+    S3A-->>STR: 保存完了
+    
+    STR->>STR: trigger_sync()
+    Note over STR,KB: S3への保存をトリガーに<br/>Bedrock KBが自動的に：<br/>1. チャンキング<br/>2. Embedding生成<br/>3. Pineconeへのインデックス作成
+    
+    STR-->>UC: 保存完了
+    UC-->>H: Document
 ```
 
 ### 3.2 検索処理フロー
 
 ```mermaid
 sequenceDiagram
-    participant C as Client
-    participant L as Lambda Handler
-    participant KC as KnowledgeClient
-    participant KB as Knowledge BaseClient
-    participant KBS as Knowledge Base Service
+    participant H as Lambda Handler
+    participant SUC as SearchKnowledgeUseCase
+    participant RAG as RAGPort
+    participant POL as SearchPolicy
+    participant KBA as BedrockKBAdapter
+    participant KB as Bedrock Knowledge Base
     participant PC as Pinecone
     
-    C->>L: QueryRequest
-    L->>L: 署名検証
+    H->>SUC: execute(query)
     
-    L->>KC: search(query)
-    KC->>KB: retrieve_and_generate(query)
+    alt 検索のみの場合
+        SUC->>RAG: search(query)
+        RAG->>KBA: 実装により処理
+        KBA->>KB: 検索リクエスト
+        Note over KB: クエリをEmbedding化
+        KB->>PC: ベクトル検索
+        PC-->>KB: 類似ドキュメント
+        KB-->>KBA: 検索結果
+        KBA-->>RAG: List<Document>
+        RAG-->>SUC: documents
+        
+        SUC->>POL: filter_by_score(documents)
+        POL-->>SUC: filtered_documents
+        
+        SUC->>POL: boost_by_freshness(documents)
+        POL-->>SUC: boosted_documents
+        
+    else 検索+生成の場合
+        SUC->>RAG: search_and_generate(query)
+        RAG->>KBA: 実装により処理
+        KBA->>KB: RAG検索リクエスト
+        Note over KB: 検索+生成を実行
+        KB-->>KBA: SearchResult
+        KBA-->>RAG: SearchResult
+        RAG-->>SUC: result
+    end
     
-    KB->>KBS: RAG検索実行
-    KBS->>KBS: クエリEmbedding生成
-    KBS->>PC: ベクトル検索
-    PC-->>KBS: 関連ドキュメント
-    KBS->>KBS: コンテキスト構築
-    KBS-->>KB: 検索結果+コンテキスト
-    
-    KB-->>KC: RAG結果
-    KC-->>L: DocumentSearchResults
-    L-->>C: QueryResponse
+    SUC-->>H: SearchResult
 ```
 
-## 4. スキーマ定義
-
-### 4.1 主要データモデル
+### 3.3 データ同期メカニズム
 
 ```mermaid
-classDiagram
-    %% Scrapbox関連
-    class ScrapboxPage {
-        +id: str
-        +title: str
-        +updated: int
-        +created: int
-        +lines: int
-    }
+graph TB
+    subgraph "同期トリガー"
+        S3E[S3イベント<br/>PutObject/DeleteObject]
+        MANUAL[手動同期<br/>API呼び出し]
+        SCHEDULE[定期同期<br/>EventBridge]
+    end
     
-    class ScrapboxPageContent {
-        +title: str
-        +lines: list[ScrapboxLine]
-        +created: int
-        +updated: int
-        +version: str
-    }
+    subgraph "Bedrock KB処理"
+        SYNC[データソース同期]
+        CHUNK[チャンキング処理]
+        EMBED[Embedding生成]
+        INDEX[インデックス更新]
+    end
     
-    class ScrapboxLine {
-        +text: str
-        +indent: int
-    }
+    subgraph "結果"
+        PINECONE[Pinecone更新]
+        META[メタデータ更新]
+    end
     
-    %% Knowledge Base関連
-    class KnowledgeBaseDocument {
-        +document_id: str
-        +title: str
-        +content: str
-        +metadata: DocumentMetadata
-        +s3_uri: str
-    }
+    S3E --> SYNC
+    MANUAL --> SYNC
+    SCHEDULE --> SYNC
     
-    class DocumentMetadata {
-        +source: str
-        +title: str
-        +url: str
-        +created_at: datetime
-        +updated_at: datetime
-        +content_type: str
-    }
+    SYNC --> CHUNK
+    CHUNK --> EMBED
+    EMBED --> INDEX
     
-    class RAGRequest {
-        +query: str
-        +max_results: int = 5
-        +search_type: str = "HYBRID"
-    }
-    
-    class RAGResponse {
-        +query: str
-        +results: list[RetrievalResult]
-        +generated_text: Optional[str]
-    }
-    
-    class RetrievalResult {
-        +document_id: str
-        +title: str
-        +content: str
-        +score: float
-        +location: dict
-    }
-    
-    %% Pinecone関連
-    class VectorData {
-        +id: str
-        +values: list[float]
-        +metadata: VectorMetadata
-    }
-    
-    class VectorMetadata {
-        +document_id: str
-        +chunk_index: int
-        +source: str
-        +title: str
-        +content: str
-        +created_at: datetime
-        +updated_at: datetime
-    }
-    
-    %% API関連
-    class QueryRequest {
-        +query: str
-        +top_k: int = 10
-        +include_generation: bool = False
-    }
-    
-    class QueryResponse {
-        +query: str
-        +results: list[DocumentSearchResult]
-        +total_results: int
-        +generated_answer: Optional[str]
-    }
-    
-    class DocumentSearchResult {
-        +document_id: str
-        +title: str
-        +content: str
-        +score: float
-        +metadata: dict
-    }
-    
-    %% 関連
-    ScrapboxPageContent --> ScrapboxLine : contains
-    KnowledgeBaseDocument --> DocumentMetadata : has
-    RAGResponse --> RetrievalResult : contains
-    QueryResponse --> DocumentSearchResult : contains
-    VectorData --> VectorMetadata : has
+    INDEX --> PINECONE
+    INDEX --> META
 ```
 
-## 5. 実装の詳細
+## 4. ドメインモデル定義
 
-### 5.1 データ処理方針（Knowledge Base利用）
+### 4.1 エンティティ
 
-```mermaid
-flowchart LR
-    A[Scrapboxページ] --> B[ドキュメント整形]
-    B --> C[S3保存<br/>データソース]
-    C --> D[Knowledge Base<br/>自動同期]
-    D --> E[チャンク分割<br/>自動Embedding]
-    E --> F[Pinecone<br/>ベクトルDB]
-    
-    G[検索クエリ] --> H[Knowledge Base<br/>RAG検索]
-    H --> F
-    F --> I[関連ドキュメント<br/>取得]
-    I --> J[回答生成]
-```
+#### Document
 
-**実装方針の利点**：
+- ナレッジベースの基本単位
+- Scrapboxページから変換される
+- S3に永続化され、Bedrock KBによって自動処理される
 
-- **自動化されたRAGパイプライン**: チャンク分割からEmbedding生成まで自動
-- **最適化済みの検索**: Bedrockが提供するハイブリッド検索（セマンティック+キーワード）
-- **高性能ベクトルDB**: Pineconeによる高速・高精度な類似度検索
-- **スケーラビリティ**: 大量ドキュメントの効率的な処理
-- **メンテナンス性**: Knowledge BaseとPineconeの連携による自動化
-- **回答生成機能**: 検索結果からの自動回答生成オプション
+#### ScrapboxPage
 
-### 5.2 環境変数
+- Scrapbox APIから取得される生データ
+- Documentエンティティへの変換ロジックを持つ
 
-| 変数名                    | 説明                      | 必須 |
-|---------------------------|---------------------------|------|
-| `AWS_REGION`              | AWSリージョン                  | ○    |
-| `SCRAPBOX_PROJECT`        | Scrapboxプロジェクト名          | ○    |
-| `SCRAPBOX_API_TOKEN`      | Scrapbox APIトークン          | ○    |
-| `S3_BUCKET`               | Knowledge Base用S3バケット    | ○    |
-| `KNOWLEDGE_BASE_ID`       | Bedrock Knowledge BaseのID | ○    |
-| `KNOWLEDGE_BASE_ROLE_ARN` | Knowledge BaseのIAMロール     | ○    |
-| `PINECONE_API_KEY`        | Pinecone APIキー            | ○    |
-| `PINECONE_ENVIRONMENT`    | Pinecone環境              | ○    |
-| `PINECONE_INDEX_NAME`     | Pineconeインデックス名          | ○    |
+### 4.2 値オブジェクト
 
-### 5.3 エラーハンドリング
+#### DocumentId
 
-```python
-# HTTPエラー
-- requests.HTTPError → 外部API通信エラー
-- 適切なリトライとフォールバック
+- ドキュメントの一意識別子
+- S3キーおよびBedrock KB内での識別に使用
 
-# 検証エラー
-- pydantic.ValidationError → データ検証エラー
-- 詳細なエラーメッセージ返却
+#### Query
 
-# 処理エラー
-- カスタム例外クラスで分類
-- ログ出力とモニタリング
-```
+- 検索クエリを表現
+- 検索モード（セマンティック/キーワード/ハイブリッド）を含む
+
+#### Metadata
+
+- ドキュメントのメタ情報
+- ソース、作成日時、更新日時、タグなどを保持
+
+### 4.3 ドメインポリシー
+
+#### SearchPolicy
+
+- 検索結果のフィルタリング戦略
+- スコアリングとランキングのビジネスルール
+- 重複排除ロジック
+
+## 5. インフラストラクチャ設定
+
+### 5.1 環境変数
+
+| 変数名               | 説明                                  | 必須 |
+|----------------------|---------------------------------------|------|
+| `AWS_REGION`         | AWSリージョン                              | ○    |
+| `SCRAPBOX_PROJECT`   | Scrapboxプロジェクト名                      | ○    |
+| `SCRAPBOX_API_TOKEN` | Scrapbox APIトークン（Secrets Manager推奨） | ○    |
+| `S3_BUCKET`          | Knowledge Base用S3バケット名              | ○    |
+| `KNOWLEDGE_BASE_ID`  | Bedrock Knowledge BaseのID             | ○    |
+| `DATA_SOURCE_ID`     | Bedrock KB内のデータソースID                 | ○    |
+
+### 5.2 Bedrock Knowledge Base設定
+
+#### データソース設定
+- **タイプ**: S3
+- **バケット**: `${S3_BUCKET}`
+- **同期スケジュール**: リアルタイム（S3イベントトリガー）
+
+#### Embedding設定
+- **モデル**: Amazon Titan Embeddings G1 - Text
+- **モデルID**: `amazon.titan-embed-text-v1`
+- **次元数**: 1536
+
+#### チャンキング戦略
+- **方式**: 固定サイズチャンキング
+- **チャンクサイズ**: 1000トークン
+- **オーバーラップ**: 200トークン
+
+#### ベクトルデータベース設定
+- **プロバイダー**: Pinecone
+- **接続**: Bedrock KB管理（APIキーはBedrock内で設定）
+- **インデックス**: Bedrock KB管理下で自動作成
+- **メトリクス**: コサイン類似度
+
+#### 注意事項
+- Embeddingの生成、Pineconeへのインデックス作成は全てBedrock KBが自動で実行
+- Lambda側でのEmbedding処理やPinecone直接操作は不要
+- Knowledge BaseのIAMロールはIaC(Terraform)で管理
 
 ## 6. セキュリティ設計
 
@@ -384,157 +471,17 @@ flowchart LR
 - Lambda関数の署名検証（HMAC-SHA256）
 - IAMロールによる最小権限原則
 - APIトークンのSecrets Manager管理
+- Bedrock KBのリソースベースポリシー
 
 ### 6.2 データ保護
 
 - S3暗号化（SSE-S3）
 - 転送時のTLS暗号化
 - ログのマスキング処理
+- Pineconeへの接続はBedrock KB経由のみ
 
-## 7. パフォーマンス最適化
+### 6.3 アクセス制御
 
-### 7.1 バッチ処理
-
-- ページ取得の並列化
-- Embedding生成のバッチ化
-- ベクトルDB操作の一括処理
-
-### 7.2 キャッシング戦略
-
-- S3への中間結果保存
-- Lambda関数のウォームスタート活用
-- 接続プーリング
-
-```mermaid
-classDiagram
-    %% ===== Framework / Wiring =====
-    class LambdaHandler {
-      +lambda_handler(event, context)
-    }
-    class Container {
-      +search_usecase(): SearchKnowledgeUseCase
-      +ingest_usecase(): IngestScrapboxUseCase
-    }
-    LambdaHandler --> Container
-
-    %% ===== Application (UseCases) =====
-    class SearchKnowledgeUseCase {
-      +execute(query: Query, top_k: int, with_gen: bool): SearchResult
-    }
-    class IngestScrapboxUseCase {
-      +execute(): int
-    }
-    Container --> SearchKnowledgeUseCase
-    Container --> IngestScrapboxUseCase
-
-    %% ===== Domain (Policies / Models) =====
-    class Policies {
-      +dedupe(rs: RetrievalSet): RetrievalSet
-      +freshness_boost(rs: RetrievalSet): RetrievalSet
-      +enforce_sources(rs: RetrievalSet): RetrievalSet
-      +cap_citations(rs: RetrievalSet, n:int): RetrievalSet
-      +filter_pii(rs: RetrievalSet): RetrievalSet
-      +meets_threshold(rs: RetrievalSet, min_score:float): bool
-    }
-
-    class SearchMode {
-      <<enumeration>>
-      HYBRID
-      VECTOR
-      KEYWORD
-    }
-
-    class Query {
-      +text: str
-      +mode: SearchMode
-    }
-    class Chunk {
-      +id: str
-      +text: str
-      +source: str
-      +updated_at: datetime
-      +score: float
-      +metadata: dict
-    }
-    class RetrievalSet {
-      +items: Chunk[]
-      +snapshot_id: str
-    }
-    class AnswerDraft {
-      +citations: Chunk[]
-      +outline: str[]
-    }
-    class SearchResult {
-      +query: str
-      +results: Chunk[]
-      +generated: str
-      +policy_version: str
-      +snapshot_id: str
-    }
-
-    SearchKnowledgeUseCase --> Policies
-    SearchKnowledgeUseCase --> Query
-    SearchKnowledgeUseCase --> RetrievalSet
-    SearchKnowledgeUseCase --> AnswerDraft
-    SearchKnowledgeUseCase --> SearchResult
-
-    IngestScrapboxUseCase --> Chunk
-
-    %% ===== Ports (Interfaces) =====
-    class ScrapboxPort {
-      <<interface>>
-      +list_pages(): dict[]
-      +get_page(title:str): dict
-    }
-    class StorePort {
-      <<interface>>
-      +put(key:str, content: bytes, metadata: dict): void
-    }
-    class RetrieverPort {
-      <<interface>>
-      +retrieve(query: Query, top_k:int, mode: SearchMode): RetrievalSet
-    }
-    class GeneratorPort {
-      <<interface>>
-      +generate(query: Query, citations: Chunk[]): str
-    }
-
-    SearchKnowledgeUseCase ..> RetrieverPort
-    SearchKnowledgeUseCase ..> GeneratorPort
-    IngestScrapboxUseCase ..> ScrapboxPort
-    IngestScrapboxUseCase ..> StorePort
-
-    %% ===== Adapters (Implementations) =====
-    class ScrapboxClient {
-      -cfg: Config
-    }
-    class S3Store {
-      -cfg: Config
-    }
-    class BedrockKbClient {
-      -cfg: Config
-    }
-    class LlmClient {
-      -cfg: Config
-    }
-
-    ScrapboxClient ..|> ScrapboxPort
-    S3Store ..|> StorePort
-    BedrockKbClient ..|> RetrieverPort
-    LlmClient ..|> GeneratorPort
-
-    %% ===== Shared =====
-    class Config {
-      +from_env(): Config
-      +aws_region: str
-      +scrapbox_project: str
-      +s3_bucket: str
-      +kb_id: str
-    }
-
-    ScrapboxClient --> Config
-    S3Store --> Config
-    BedrockKbClient --> Config
-    LlmClient --> Config
-    Container --> Config
-```
+- Bedrock KBへのアクセスはLambda実行ロール経由
+- Pinecone APIキーはBedrock KB内で管理
+- S3バケットポリシーによるアクセス制限
