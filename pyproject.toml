@@ -6,8 +6,8 @@ readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
     "boto3",
- "pydantic",
- "requests",
+    "pydantic",
+    "requests",
 ]
 
 [project.optional-dependencies]
