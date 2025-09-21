@@ -4,8 +4,6 @@ import json
 import logging
 from typing import Any
 
-from infrastructure.config.config import CONFIG
-
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -16,10 +14,7 @@ def lambda_handler(event: dict, context: Any) -> dict:
 
     # シグネチャの検証
     actual_signature = event.get("headers", {}).get("x-signature")
-    secret = CONFIG.webhook_secret
-    if not secret:
-        logger.error("WEBHOOK_SECRET environment variable is not set")
-        return {"statusCode": 500, "body": {"error": "Server configuration error"}}
+    secret = "dummy_secret"  # 実際には安全に管理されたシークレットを使用
     expected_signature = hash_event(event, secret)
 
     is_valid_signature = verify_signature(actual_signature, expected_signature)
@@ -46,7 +41,7 @@ def upsert_scrapbox_page(page_title: str, content: str) -> dict:
     Returns:
         処理結果の辞書
     """
-    from core.processors.etl import ScrapboxETLProcessor
+    from infrastructure.adapters.etl import ScrapboxETLProcessor
 
     try:
         # ETLプロセッサでページを処理

@@ -1,3 +1,4 @@
+from schema.document import DocumentSchema
 from src.core.clients import KnowledgeClient
 
 
@@ -8,6 +9,6 @@ def test_knowledgeclient_find():
 
     c = KnowledgeClient(s3_client=DummyS3())
     res = c.find("test")
-    assert isinstance(res, dict)
-    assert res.get("id") == "stub-1"
-    assert "test" in res.get("text")
+    assert isinstance(res, DocumentSchema)
+    assert res.id == "stub-1"
+    assert "test" in res.text

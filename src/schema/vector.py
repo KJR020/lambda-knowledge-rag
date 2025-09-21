@@ -6,14 +6,20 @@ from pydantic import BaseModel, Field
 class VectorMetadata(BaseModel):
     """ベクトルに付与するメタデータ"""
 
-    text: str = Field(..., description="元のテキスト内容")
     source: str = Field(..., description="データソース（例: scrapbox, s3）")
-    source_id: str = Field(..., description="ソース内でのユニークID")
-    title: str | None = Field(None, description="ドキュメントタイトル")
+    project_name: str = Field(..., description="プロジェクト名")
+    page_title: str = Field(..., description="ページタイトル")
+    page_id: str = Field(..., description="ページID")
+    content_preview: str = Field(
+        ..., description="コンテンツのプレビュー（最大500文字）"
+    )
     url: str | None = Field(None, description="参照URL")
-    created_at: str | None = Field(None, description="作成日時")
-    updated_at: str | None = Field(None, description="更新日時")
+    s3_key: str | None = Field(None, description="S3オブジェクトキー")
+    created_at: int | None = Field(None, description="作成日時（UNIX timestamp）")
+    updated_at: int | None = Field(None, description="更新日時（UNIX timestamp）")
     tags: list[str] | None = Field(default_factory=list, description="タグリスト")
+    character_count: int | None = Field(None, description="文字数")
+    lines_count: int | None = Field(None, description="行数")
     chunk_index: int | None = Field(
         None, description="分割されたチャンクのインデックス"
     )
