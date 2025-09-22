@@ -18,9 +18,10 @@ variable "pinecone_connection_string" {
   type        = string
 }
 
-variable "pinecone_credentials_secret_arn" {
-  description = "PineconeクレデンシャルのAWS Secrets Manager ARN"
+variable "pinecone_api_key" {
+  description = "Pinecone APIキー"
   type        = string
+  sensitive   = true
 }
 
 variable "scrapbox_project" {
@@ -38,6 +39,12 @@ variable "lambda_function_name" {
   description = "Lambda関数名"
   type        = string
   default     = "lambda-knowledge-rag"
+}
+
+variable "lambda_zip_path" {
+  description = "LambdaデプロイメントパッケージのZIPファイルパス"
+  type        = string
+  default     = "../lambda/deployment.zip"
 }
 
 variable "tags" {

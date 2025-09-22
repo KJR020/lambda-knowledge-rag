@@ -1,66 +1,65 @@
-# Terraform出力定義
-
-# 基本リソースの出力
-output "lambda_role_name" {
-  description = "Lambda実行ロール名"
-  value       = aws_iam_role.lambda_exec.name
-}
-
-output "lambda_role_arn" {
-  description = "Lambda実行ロールARN"
-  value       = aws_iam_role.lambda_exec.arn
-}
-
+# S3 Storage Outputs
 output "s3_bucket_name" {
-  description = "Scrapboxドキュメント用S3バケット名"
-  value       = aws_s3_bucket.scrapbox_documents.bucket
+  description = "S3バケット名"
+  value       = module.storage.bucket_name
 }
 
 output "s3_bucket_arn" {
-  description = "Scrapboxドキュメント用S3バケットARN"
-  value       = aws_s3_bucket.scrapbox_documents.arn
+  description = "S3バケットARN"
+  value       = module.storage.bucket_arn
 }
 
-output "secrets_manager_secret_name" {
-  description = "Secrets Manager シークレット名"
-  value       = aws_secretsmanager_secret.scrapbox_token.name
-}
-
-# Bedrock Knowledge Base関連の出力
-
+# Knowledge Base Outputs
 output "knowledge_base_id" {
   description = "Bedrock Knowledge BaseのID"
-  value       = aws_bedrockagent_knowledge_base.main.id
+  value       = module.knowledge_base.knowledge_base_id
 }
 
 output "knowledge_base_arn" {
   description = "Bedrock Knowledge BaseのARN"
-  value       = aws_bedrockagent_knowledge_base.main.arn
+  value       = module.knowledge_base.knowledge_base_arn
 }
 
 output "data_source_id" {
-  description = "データソースのID"
-  value       = aws_bedrockagent_data_source.s3_data_source.data_source_id
+  description = "Bedrock Knowledge BaseのデータソースID"
+  value       = module.knowledge_base.data_source_id
 }
 
-output "knowledge_base_role_arn" {
-  description = "Knowledge Base用IAMロールのARN"
-  value       = aws_iam_role.knowledge_base_role.arn
+# Lambda Outputs
+output "lambda_function_name" {
+  description = "Lambda関数名"
+  value       = module.lambda.lambda_function_name
 }
 
-output "embedding_model_arn" {
-  description = "使用するEmbeddingモデルのARN"
-  value       = "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.titan-embed-text-v1"
+output "lambda_function_arn" {
+  description = "Lambda関数ARN"
+  value       = module.lambda.lambda_function_arn
+}
+
+output "lambda_role_arn" {
+  description = "Lambda実行ロールARN"
+  value       = module.lambda.lambda_role_arn
+}
+
+# Secrets Outputs
+output "scrapbox_secret_name" {
+  description = "Scrapbox APIトークンのSecret名"
+  value       = module.secrets.scrapbox_secret_name
+}
+
+output "pinecone_secret_name" {
+  description = "Pinecone認証情報のSecret名"
+  value       = module.secrets.pinecone_secret_name
 }
 
 # Lambda関数で使用する環境変数
 output "lambda_environment_variables" {
   description = "Lambda関数で使用する環境変数"
   value = {
-    KNOWLEDGE_BASE_ID = aws_bedrockagent_knowledge_base.main.id
-    DATA_SOURCE_ID    = aws_bedrockagent_data_source.s3_data_source.data_source_id
+    KNOWLEDGE_BASE_ID = module.knowledge_base.knowledge_base_id
+    DATA_SOURCE_ID    = module.knowledge_base.data_source_id
     AWS_REGION        = var.aws_region
-    S3_BUCKET         = aws_s3_bucket.scrapbox_documents.bucket
+    S3_BUCKET         = module.storage.bucket_name
     SCRAPBOX_PROJECT  = var.scrapbox_project
   }
 }

@@ -1,6 +1,22 @@
-# Terraform variables example file
-# Copy this to terraform.tfvars and fill in your values
+# プロジェクト設定
+project_name = "lambda-knowledge-rag"
+aws_region   = "us-east-1"
 
-aws_region = "us-east-1"
-scrapbox_project = "your-scrapbox-project-name"
+# Scrapbox設定
+scrapbox_project   = "your-scrapbox-project-name"
 scrapbox_api_token = "your-scrapbox-api-token"
+
+# Pinecone設定
+pinecone_connection_string = "https://your-index-name-xxxxxxxx.svc.environment.pinecone.io"
+pinecone_api_key          = "your-pinecone-api-key"
+
+# Lambda設定
+lambda_function_name = "lambda-knowledge-rag"
+lambda_zip_path     = "../lambda/deployment.zip"
+
+# タグ設定
+tags = {
+  Project     = "lambda-knowledge-rag"
+  Environment = "dev"
+  ManagedBy   = "terraform"
+}

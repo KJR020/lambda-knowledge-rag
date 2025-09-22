@@ -1,105 +1,45 @@
-resource "random_string" "bucket_suffix" {
-  length  = 8
-  special = false
-  upper   = false
+module "storage" {
+  source = "./modules/storage"
+
+  project_name = var.project_name
+  tags         = var.tags
 }
 
-resource "aws_iam_role" "lambda_exec" {
-  name               = "lambda_knowledge_rag_exec"
-  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+module "secrets" {
+  source = "./modules/secrets"
+
+  project_name       = var.project_name
+  scrapbox_api_token = var.scrapbox_api_token
+  scrapbox_project   = var.scrapbox_project
+  pinecone_api_key   = var.pinecone_api_key
+  tags               = var.tags
 }
 
-data "aws_iam_policy_document" "lambda_assume_role" {
-  statement {
-    actions = ["sts:AssumeRole"]
-    principals {
-      type        = "Service"
-      identifiers = ["lambda.amazonaws.com"]
-    }
-  }
+module "knowledge_base" {
+  source = "./modules/knowledge-base"
+
+  project_name                   = var.project_name
+  aws_region                     = var.aws_region
+  s3_bucket_arn                  = module.storage.bucket_arn
+  pinecone_connection_string     = var.pinecone_connection_string
+  pinecone_credentials_secret_arn = module.secrets.pinecone_secret_arn
+  tags                           = var.tags
 }
 
-resource "aws_s3_bucket" "scrapbox_documents" {
-  bucket = "my-scrapbox-rag-${random_string.bucket_suffix.result}"
-}
+module "lambda" {
+  source = "./modules/lambda"
 
-resource "aws_s3_bucket_versioning" "scrapbox_documents" {
-  bucket = aws_s3_bucket.scrapbox_documents.id
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "scrapbox_documents" {
-  bucket = aws_s3_bucket.scrapbox_documents.id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
-
-resource "aws_secretsmanager_secret" "scrapbox_token" {
-  name        = "scrapbox-api-token"
-  description = "Scrapbox API token for ETL process"
-}
-
-resource "aws_secretsmanager_secret_version" "scrapbox_token" {
-  secret_id = aws_secretsmanager_secret.scrapbox_token.id
-  secret_string = jsonencode({
-    token   = var.scrapbox_api_token
-    project = var.scrapbox_project
-  })
-}
-
-resource "aws_iam_role_policy" "lambda_s3_policy" {
-  name = "lambda_s3_access"
-  role = aws_iam_role.lambda_exec.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:PutObject",
-          "s3:DeleteObject"
-        ]
-        Resource = "${aws_s3_bucket.scrapbox_documents.arn}/*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:ListBucket"
-        ]
-        Resource = aws_s3_bucket.scrapbox_documents.arn
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy" "lambda_secrets_policy" {
-  name = "lambda_secrets_access"
-  role = aws_iam_role.lambda_exec.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "secretsmanager:GetSecretValue"
-        ]
-        Resource = aws_secretsmanager_secret.scrapbox_token.arn
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-  role       = aws_iam_role.lambda_exec.name
+  project_name         = var.project_name
+  aws_region           = var.aws_region
+  lambda_function_name = var.lambda_function_name
+  lambda_zip_path      = var.lambda_zip_path
+  s3_bucket_arn        = module.storage.bucket_arn
+  s3_bucket_name       = module.storage.bucket_name
+  knowledge_base_arn   = module.knowledge_base.knowledge_base_arn
+  knowledge_base_id    = module.knowledge_base.knowledge_base_id
+  data_source_id       = module.knowledge_base.data_source_id
+  scrapbox_secret_arn  = module.secrets.scrapbox_secret_arn
+  scrapbox_secret_name = module.secrets.scrapbox_secret_name
+  tags                 = var.tags
 }
 
