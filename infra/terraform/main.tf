@@ -1,38 +1,3 @@
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.1"
-    }
-  }
-
-  required_version = ">= 1.2.0"
-}
-
-provider "aws" {
-  region = var.aws_region
-}
-
-variable "aws_region" {
-  type    = string
-  default = "us-east-1"
-}
-
-variable "scrapbox_project" {
-  type        = string
-  description = "Scrapbox project name"
-}
-
-variable "scrapbox_api_token" {
-  type        = string
-  description = "Scrapbox API token"
-  sensitive   = true
-}
-
 resource "random_string" "bucket_suffix" {
   length  = 8
   special = false
@@ -81,7 +46,7 @@ resource "aws_secretsmanager_secret" "scrapbox_token" {
 }
 
 resource "aws_secretsmanager_secret_version" "scrapbox_token" {
-  secret_id     = aws_secretsmanager_secret.scrapbox_token.id
+  secret_id = aws_secretsmanager_secret.scrapbox_token.id
   secret_string = jsonencode({
     token   = var.scrapbox_api_token
     project = var.scrapbox_project
@@ -138,18 +103,3 @@ resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
   role       = aws_iam_role.lambda_exec.name
 }
 
-output "lambda_role_name" {
-  value = aws_iam_role.lambda_exec.name
-}
-
-output "lambda_role_arn" {
-  value = aws_iam_role.lambda_exec.arn
-}
-
-output "s3_bucket_name" {
-  value = aws_s3_bucket.scrapbox_documents.bucket
-}
-
-output "secrets_manager_secret_name" {
-  value = aws_secretsmanager_secret.scrapbox_token.name
-}
