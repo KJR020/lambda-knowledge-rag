@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv add:*)",
+      "Bash(python:*)",
+      "Bash(chmod:*)",
+      "Bash(mkdir:*)",
+      "Bash(uv run:*)"
+    ],
+    "deny": []
+  }
+}
