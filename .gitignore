@@ -17,12 +17,25 @@ data/processed/
 crash.log
 
 # Build artifacts
+/build/
 dist/
-build/
 *.zip
+lambda-package.zip
 
-# VSCode
+# IDE
 .vscode/
+.idea/
 
-# Secrets
+# Environment
 .env
+.env.*
+
+# Security - Terraform
+terraform.tfvars
+terraform.tfvars.json
+*.auto.tfvars
+*.auto.tfvars.json
+
+# OS
+.DS_Store
+Thumbs.db
