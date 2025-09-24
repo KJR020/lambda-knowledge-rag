@@ -44,7 +44,7 @@ variable "lambda_function_name" {
 variable "lambda_zip_path" {
   description = "LambdaデプロイメントパッケージのZIPファイルパス"
   type        = string
-  default     = "../lambda/deployment.zip"
+  default     = "../../build/lambda/deployment.zip"
 }
 
 variable "tags" {
