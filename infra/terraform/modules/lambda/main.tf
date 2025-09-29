@@ -100,19 +100,18 @@ resource "aws_iam_role_policy" "lambda_bedrock_policy" {
 
 resource "aws_lambda_function" "main" {
   function_name = var.lambda_function_name
-  role         = aws_iam_role.lambda_exec.arn
-  handler      = "handler.lambda_handler"
-  runtime      = "python3.11"
-  timeout      = 300
-  memory_size  = 512
-  tags         = var.tags
+  role          = aws_iam_role.lambda_exec.arn
+  handler       = "handler.lambda_handler"
+  runtime       = "python3.11"
+  timeout       = 300
+  memory_size   = 512
+  tags          = var.tags
 
   filename         = var.lambda_zip_path
   source_code_hash = filebase64sha256(var.lambda_zip_path)
 
   environment {
     variables = {
-      AWS_REGION        = var.aws_region
       S3_BUCKET         = var.s3_bucket_name
       KNOWLEDGE_BASE_ID = var.knowledge_base_id
       DATA_SOURCE_ID    = var.data_source_id

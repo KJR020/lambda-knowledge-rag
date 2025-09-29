@@ -39,3 +39,4 @@ terraform.tfvars.json
 # OS
 .DS_Store
 Thumbs.db
+infra/terraform/terraform.tfvars

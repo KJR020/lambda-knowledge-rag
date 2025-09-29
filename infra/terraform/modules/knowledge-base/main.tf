@@ -25,7 +25,7 @@ resource "aws_iam_role" "knowledge_base_role" {
 
 resource "aws_iam_policy" "knowledge_base_policy" {
   name        = "${var.project_name}-knowledge-base-policy"
-  description = "Policy for Bedrock Knowledge Base access to S3 and Bedrock"
+  description = "Policy for Bedrock Knowledge Base access to S3, Bedrock, and Secrets Manager"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -48,6 +48,15 @@ resource "aws_iam_policy" "knowledge_base_policy" {
         ]
         Resource = [
           "arn:aws:bedrock:*::foundation-model/amazon.titan-embed-text-v1"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ]
+        Resource = [
+          var.pinecone_credentials_secret_arn
         ]
       }
     ]
@@ -96,7 +105,7 @@ resource "aws_bedrockagent_data_source" "s3_data_source" {
     type = "S3"
 
     s3_configuration {
-      bucket_arn = var.s3_bucket_arn
+      bucket_arn         = var.s3_bucket_arn
       inclusion_prefixes = ["scrapbox/"]
     }
   }
